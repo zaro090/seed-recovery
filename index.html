@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>بازیابی کلمه BIP39</title>
-<script src="https://cdn.jsdelivr.net/npm/@scure/bip39@1.2.2/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/js-sha256@0.11.0/build/sha256.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: Tahoma, sans-serif; background: #0f0f0f; color: #f0f0f0; min-height: 100vh; padding: 16px; line-height: 1.6; }
@@ -22,8 +22,7 @@ textarea:focus { border-color: #f5c542; }
 .result { margin-top: 20px; padding: 16px; border-radius: 12px; background: #262626; border: 1px solid #3a3a3a; display: none; }
 .result.show { display: block; }
 .result h3 { color: #f5c542; font-size: 1rem; margin-bottom: 10px; }
-.result-item { padding: 12px; margin: 8px 0; border-radius: 8px; background: #333; font-size: 0.85rem; word-break: break-word; font-family: monospace; direction: ltr; text-align: left; cursor: pointer; line-height: 1.8; }
-.result-item:hover { background: #3a3a3a; }
+.result-item { padding: 12px; margin: 8px 0; border-radius: 8px; background: #333; font-size: 0.85rem; word-break: break-word; font-family: monospace; direction: ltr; text-align: left; line-height: 1.8; }
 .result-item.success { background: rgba(46,204,113,0.15); border: 1px solid #2ecc71; color: #2ecc71; }
 .result-item.error { background: rgba(231,76,60,0.15); border: 1px solid #e74c3c; color: #e74c3c; }
 .result-item.warning { background: rgba(243,156,18,0.15); border: 1px solid #f39c12; color: #f39c12; }
@@ -96,8 +95,7 @@ function updateHint() {
   document.getElementById('hintText').textContent = 'باید ' + needed + ' کلمه وارد کنی';
 }
 
-// ===== چک‌سام BIP39 (پیاده‌سازی دستی) =====
-async function checkChecksum(words) {
+function checkChecksum(words) {
   var indices = [];
   for (var i = 0; i < words.length; i++) {
     var idx = wordlist.indexOf(words[i]);
@@ -109,7 +107,7 @@ async function checkChecksum(words) {
     bits += indices[i].toString(2).padStart(11, '0');
   }
   var totalBits = bits.length;
-  var entropyBits = totalBits * 32 / 33;
+  var entropyBits = Math.floor(totalBits * 32 / 33);
   var checksumBits = totalBits - entropyBits;
   var entropyStr = bits.slice(0, entropyBits);
   var checksumStr = bits.slice(entropyBits);
@@ -118,22 +116,16 @@ async function checkChecksum(words) {
     entropyBytes.push(parseInt(entropyStr.slice(i, i + 8), 2));
   }
   var entropyArr = new Uint8Array(entropyBytes);
-  var hashBuffer;
-  try {
-    hashBuffer = await crypto.subtle.digest('SHA-256', entropyArr);
-  } catch (e) {
-    return 'no-crypto';
-  }
-  var hashArray = new Uint8Array(hashBuffer);
+  var hashHex = sha256(entropyArr);
   var hashBits = '';
-  for (var i = 0; i < hashArray.length; i++) {
-    hashBits += hashArray[i].toString(2).padStart(8, '0');
+  for (var i = 0; i < hashHex.length; i++) {
+    hashBits += parseInt(hashHex[i], 16).toString(2).padStart(4, '0');
   }
   var expectedChecksum = hashBits.slice(0, checksumBits);
   return expectedChecksum === checksumStr;
 }
 
-async function startSearch() {
+function startSearch() {
   var input = document.getElementById('seedInput').value.trim();
   var words = input.split(/\s+/).filter(function(w) { return w.length > 0; });
   var needed = totalWords - missingCount;
@@ -151,73 +143,62 @@ async function startSearch() {
   document.getElementById('loading').classList.add('show');
   document.getElementById('resultBox').classList.remove('show');
 
-  var found = [];
-  var noCrypto = false;
+  setTimeout(function() {
+    var found = [];
 
-  if (missingCount === 1) {
-    for (var i = 0; i < wordlist.length; i++) {
-      var candidate = words.concat([wordlist[i]]);
-      var result = await checkChecksum(candidate);
-      if (result === 'no-crypto') { noCrypto = true; break; }
-      if (result) {
-        var highlighted = [];
-        for (var j = 0; j < candidate.length; j++) {
-          if (candidate[j] === wordlist[i]) {
-            highlighted.push('<span class="found-word">' + candidate[j] + '</span>');
-          } else {
-            highlighted.push(candidate[j]);
-          }
-        }
-        found.push(highlighted.join(' '));
-      }
-      if (i % 100 === 0) await new Promise(function(r) { setTimeout(r, 0); });
-    }
-  } else if (missingCount === 2) {
-    for (var i = 0; i < wordlist.length; i++) {
-      for (var j = 0; j < wordlist.length; j++) {
-        var candidate = words.concat([wordlist[i], wordlist[j]]);
-        var result = await checkChecksum(candidate);
-        if (result === 'no-crypto') { noCrypto = true; break; }
-        if (result) {
+    if (missingCount === 1) {
+      for (var i = 0; i < wordlist.length; i++) {
+        var candidate = words.concat([wordlist[i]]);
+        if (checkChecksum(candidate)) {
           var highlighted = [];
-          for (var k = 0; k < candidate.length; k++) {
-            if (candidate[k] === wordlist[i] || candidate[k] === wordlist[j]) {
-              highlighted.push('<span class="found-word">' + candidate[k] + '</span>');
+          for (var j = 0; j < candidate.length; j++) {
+            if (candidate[j] === wordlist[i]) {
+              highlighted.push('<span class="found-word">' + candidate[j] + '</span>');
             } else {
-              highlighted.push(candidate[k]);
+              highlighted.push(candidate[j]);
             }
           }
           found.push(highlighted.join(' '));
         }
       }
-      if (noCrypto) break;
-      if (i % 20 === 0) await new Promise(function(r) { setTimeout(r, 0); });
+    } else if (missingCount === 2) {
+      for (var i = 0; i < wordlist.length; i++) {
+        for (var j = 0; j < wordlist.length; j++) {
+          var candidate = words.concat([wordlist[i], wordlist[j]]);
+          if (checkChecksum(candidate)) {
+            var highlighted = [];
+            for (var k = 0; k < candidate.length; k++) {
+              if (candidate[k] === wordlist[i] || candidate[k] === wordlist[j]) {
+                highlighted.push('<span class="found-word">' + candidate[k] + '</span>');
+              } else {
+                highlighted.push(candidate[k]);
+              }
+            }
+            found.push(highlighted.join(' '));
+          }
+        }
+      }
     }
-  }
 
-  document.getElementById('loading').classList.remove('show');
-  document.getElementById('searchBtn').disabled = false;
-  var box = document.getElementById('resultBox');
-  var content = document.getElementById('resultContent');
-  box.classList.add('show');
-  content.innerHTML = '';
+    document.getElementById('loading').classList.remove('show');
+    document.getElementById('searchBtn').disabled = false;
+    var box = document.getElementById('resultBox');
+    var content = document.getElementById('resultContent');
+    box.classList.add('show');
+    content.innerHTML = '';
 
-  if (noCrypto) {
-    content.innerHTML = '<div class="result-item error">مرورگر شما از SHA-256 پشتیبانی نمی‌کند. لطفاً از Chrome استفاده کنید.</div>';
-    return;
-  }
-
-  if (found.length === 0) {
-    content.innerHTML = '<div class="result-item error">هیچ ترکیبی پیدا نشد.</div>';
-  } else if (found.length === 1) {
-    content.innerHTML = '<div class="result-item success">عبارت کامل پیدا شد (کلمه گم‌شده با رنگ زرد):</div>';
-  } else {
-    content.innerHTML = '<div class="result-item warning">' + found.length + ' عبارت پیدا شد (کلمه گم‌شده با رنگ زرد):</div>';
-  }
-  for (var i = 0; i < found.length; i++) {
-    content.innerHTML += '<div class="result-item success">' + found[i] + '</div>';
-  }
-  document.getElementById('statsBox').textContent = 'تعداد کل نتایج: ' + found.length;
+    if (found.length === 0) {
+      content.innerHTML = '<div class="result-item error">هیچ ترکیبی پیدا نشد.</div>';
+    } else if (found.length === 1) {
+      content.innerHTML = '<div class="result-item success">عبارت کامل پیدا شد (کلمه گم‌شده با رنگ زرد):</div>';
+    } else {
+      content.innerHTML = '<div class="result-item warning">' + found.length + ' عبارت پیدا شد (کلمه گم‌شده با رنگ زرد):</div>';
+    }
+    for (var i = 0; i < found.length; i++) {
+      content.innerHTML += '<div class="result-item success">' + found[i] + '</div>';
+    }
+    document.getElementById('statsBox').textContent = 'تعداد کل نتایج: ' + found.length;
+  }, 100);
 }
 </script>
 </body>
