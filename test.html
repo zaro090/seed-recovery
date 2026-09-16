@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="https://cdn.jsdelivr.net/npm/js-sha256@0.11.0/build/sha256.min.js"></script>
+</head>
+<body>
+<h3>تست SHA256</h3>
+<pre id="out"></pre>
+<script>
+// تست: SHA256 خالی = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+var empty = new Uint8Array([]);
+var result1 = sha256(empty);
+var result2 = sha256(Array.from(empty));
+var result3 = sha256([]);
+
+document.getElementById('out').textContent = 
+  'انتظار:  e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\n' +
+  'sha256(Uint8Array): ' + result1 + '\n' +
+  'sha256(Array.from):  ' + result2 + '\n' +
+  'sha256([]):          ' + result3 + '\n\n' +
+  'همه باید یکی باشن!';
+</script>
+</body>
+</html>
