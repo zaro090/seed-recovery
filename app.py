@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, render_template_string
 from mnemonic import Mnemonic
+import os
 
 app = Flask(__name__)
 mnemo = Mnemonic("english")
@@ -29,7 +30,8 @@ textarea:focus { border-color: #f5c542; }
 .result { margin-top: 20px; padding: 16px; border-radius: 12px; background: #262626; border: 1px solid #3a3a3a; display: none; }
 .result.show { display: block; }
 .result h3 { color: #f5c542; font-size: 1rem; margin-bottom: 10px; }
-.result-item { padding: 12px; margin: 8px 0; border-radius: 8px; background: #333; font-size: 0.85rem; word-break: break-word; font-family: monospace; direction: ltr; text-align: left; line-height: 1.8; }
+.result-item { padding: 12px; margin: 8px 0; border-radius: 8px; background: #333; font-size: 0.85rem; word-break: break-word; font-family: monospace; direction: ltr; text-align: left; cursor: pointer; line-height: 1.8; }
+.result-item:hover { background: #3a3a3a; }
 .result-item.success { background: rgba(46,204,113,0.15); border: 1px solid #2ecc71; color: #2ecc71; }
 .result-item.error { background: rgba(231,76,60,0.15); border: 1px solid #e74c3c; color: #e74c3c; }
 .result-item.warning { background: rgba(243,156,18,0.15); border: 1px solid #f39c12; color: #f39c12; }
@@ -96,8 +98,8 @@ async function startSearch() {
     if (data.error) { content.innerHTML = '<div class="result-item error">' + data.error + '</div>'; }
     else if (data.found.length === 0) { content.innerHTML = '<div class="result-item error">هیچ ترکیبی پیدا نشد.</div>'; }
     else {
-      if (data.found.length === 1) { content.innerHTML = '<div class="result-item success">عبارت کامل پیدا شد (کلمه گم‌شده زرد):</div>'; }
-      else { content.innerHTML = '<div class="result-item warning">' + data.found.length + ' عبارت پیدا شد (کلمه گم‌شده زرد):</div>'; }
+      if (data.found.length === 1) { content.innerHTML = '<div class="result-item success">عبارت کامل پیدا شد (کلمه گم‌شده با رنگ زرد مشخص شده):</div>'; }
+      else { content.innerHTML = '<div class="result-item warning">' + data.found.length + ' عبارت پیدا شد (کلمه گم‌شده با رنگ زرد):</div>'; }
       for (var i = 0; i < data.found.length; i++) { content.innerHTML += '<div class="result-item success">' + data.found[i] + '</div>'; }
     }
     document.getElementById('statsBox').textContent = 'تعداد کل نتایج: ' + data.found.length;
@@ -156,6 +158,5 @@ def search():
     return jsonify({'found': found, 'error': None})
 
 if __name__ == '__main__':
-    import os
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port, debug=False)
